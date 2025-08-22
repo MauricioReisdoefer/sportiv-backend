@@ -4,6 +4,7 @@ from flask_jwt_extended import (
 )
 from models.user_model import UserModel
 from util import db
+import datetime
 
 # Criar usuário
 def create_new_user():
@@ -17,10 +18,16 @@ def create_new_user():
     if UserModel.query.filter_by(username=data["username"]).first():
         return jsonify({"error": "Username já cadastrado"}), 400
 
+    birth_date_str = data.get("birth_date")
+    try:
+        birth_date = datetime.datetime.strptime(birth_date_str, "%Y-%m-%d").date()
+    except Exception:
+        return jsonify({"error": "Data de nascimento inválida. Use YYYY-MM-DD"}), 400
+
     user = UserModel(
         name=data["name"],
         email=data["email"],
-        birth_date=data["birth_date"],
+        birth_date=birth_date,
         state=data.get("state"),
         city=data.get("city"),
         username=data["username"],
@@ -37,8 +44,7 @@ def login_user():
     user = UserModel.query.filter_by(email=data["email"]).first()
 
     if user and user.check_password(data["password"]):
-        # Gera token válido por 1 hora
-        access_token = create_access_token(identity=user.id)
+        access_token = create_access_token(identity=str(user.id))
         return jsonify({"access_token": access_token}), 200
 
     return jsonify({"error": "Credenciais inválidas"}), 401
@@ -75,7 +81,7 @@ def view_all_users():
 # Atualizar usuário (precisa estar logado)
 @jwt_required()
 def update_user(user_id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     if current_user_id != user_id:
         return jsonify({"error": "Não autorizado"}), 403
 
@@ -96,7 +102,7 @@ def update_user(user_id):
 # Deletar usuário (precisa estar logado)
 @jwt_required()
 def delete_user(user_id):
-    current_user_id = get_jwt_identity()
+    current_user_id = int(get_jwt_identity())
     if current_user_id != user_id:
         return jsonify({"error": "Não autorizado"}), 403
 
